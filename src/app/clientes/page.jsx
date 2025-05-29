@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState,useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,64 +12,135 @@ import { Plus, Edit, Trash2, DollarSign } from "lucide-react"
 import { useInventory } from "@/contexts/inventory-context"
 
 export default function ClientsPage() {
-  const { clients, addClient, updateClient, deleteClient, updateClientBalance } = useInventory()
+  const { clients, addClient, updateClient, deleteClient, updateClientBalance,setClients } = useInventory()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [editingClient, setEditingClient] = useState(null)
   const [selectedClient, setSelectedClient] = useState(null)
   const [paymentAmount, setPaymentAmount] = useState("")
   const [formData, setFormData] = useState({
-    name: "",
-    address: "",
-    contact: "",
+    nombre: "",
+    direccion: "",
+    contacto: "",
     balance: "",
+    cedulaRNC:""
   })
 
-  const handleSubmit = (e) => {
+
+   useEffect(() => {
+      const fetchClients = async () => {
+        try {
+          const res = await fetch('/api/clients')
+          const data = await res.json()
+          setClients(data)
+        } catch (error) {
+          console.error('Error al obtener clientes:', error)
+        }
+      }
+      fetchClients()
+    }, [])
+
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    
     const clientData = {
-      name: formData.name,
-      address: formData.address,
-      contact: formData.contact,
-      balance: Number.parseFloat(formData.balance) || 0,
-    }
+      nombre: formData.nombre.trim(),
+      direccion: formData.direccion.trim(),
+      contacto: formData.contacto.trim(),
+      balance: Number.parseFloat(formData.balance),
+      cedulaRNC: formData.cedulaRNC.trim(),
+    };
+    
 
-    if (editingClient) {
-      updateClient(editingClient.id, clientData)
-    } else {
-      addClient(clientData)
-    }
+    try {
+      let res, data
+      if (editingClient) {
+        // PUT
+        res = await fetch(`/api/clients/${editingClient.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(clientData),
+        })
+      } else {
+        // POST
+        res = await fetch('/api/clients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(clientData),
+        })
+      }
 
-    setFormData({ name: "", address: "", contact: "", balance: "" })
-    setEditingClient(null)
-    setIsDialogOpen(false)
+      if (!res.ok) throw new Error(`Error en la solicitud: ${res.status}`)
+      data = await res.json()
+      console.log(data)
+
+      if (editingClient) {
+        updateClient(editingClient.id, clientData)
+      } else {
+        addClient(data)
+      }
+
+      setFormData({ nombre: "", direccion: "", contacto: "", balance: "",cedulaRNC:"" })
+      setEditingClient(null)
+      setIsDialogOpen(false)
+      
+
+    } catch (error) {
+      console.error('Error al enviar el cliente:', error)
+    }
   }
+  
 
   const handleEdit = (client) => {
     setEditingClient(client)
     setFormData({
-      name: client.name,
-      address: client.address,
-      contact: client.contact,
-      balance: client.balance.toString(),
+      nombre: client.nombre ?? "",
+      direccion: client.direccion ?? "",
+      contacto: client.contacto ?? "",
+      balance: client.balance.toString() ?? "",
+      cedulaRNC: client.cedulaRNC ?? "",
     })
     setIsDialogOpen(true)
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (confirm("¿Estás seguro de que quieres eliminar este cliente?")) {
-      deleteClient(id)
+      try {
+        const res = await fetch(`/api/clients/${id}`, {
+          method: 'DELETE',
+        })
+        if (!res.ok) throw new Error(`Error en la solicitud: ${res.status}`)
+        const data = await res.json()
+        console.log(data)
+        deleteClient(id)
+      } catch (error) {
+        console.error('Error al eliminar el cliente:', error)
+      }
     }
   }
 
-  const handlePayment = (e) => {
+  const handlePayment = async (e) => {
     e.preventDefault()
     const amount = Number.parseFloat(paymentAmount)
     if (amount > 0 && amount <= selectedClient.balance) {
-      updateClientBalance(selectedClient.id, -amount)
-      setPaymentAmount("")
-      setSelectedClient(null)
-      setIsPaymentDialogOpen(false)
+      try {
+        const res = await fetch(`/api/clients/${selectedClient.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount }),
+        })
+        if (!res.ok) throw new Error(`Error: ${res.status}`)
+        const updatedClient = await res.json()
+  
+        updateClient(selectedClient.id, updatedClient)  // actualiza en contexto
+        setPaymentAmount("")
+        setSelectedClient(null)
+        setIsPaymentDialogOpen(false)
+      } catch (error) {
+        console.error('Error al registrar pago:', error)
+        alert('Error al registrar el pago')
+      }
     } else {
       alert("El monto debe ser mayor a 0 y no puede exceder el balance pendiente")
     }
@@ -93,7 +164,7 @@ export default function ClientsPage() {
             <Button
               onClick={() => {
                 setEditingClient(null)
-                setFormData({ name: "", address: "", contact: "", balance: "" })
+                setFormData({ nombre: "", direccion: "", contacto: "", balance: "" })
               }}
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -109,17 +180,26 @@ export default function ClientsPage() {
                 <Label htmlFor="name">Nombre</Label>
                 <Input
                   id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={formData.nombre}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                   required
                 />
               </div>
               <div>
+  <Label htmlFor="cedula">Cédula/RNC</Label>
+  <Input
+    id="cedula"
+    value={formData.cedulaRNC}
+    onChange={(e) => setFormData({ ...formData, cedulaRNC: e.target.value })}
+    placeholder="Cédula o RNC del cliente"
+  />
+</div>
+              <div>
                 <Label htmlFor="address">Dirección</Label>
                 <Textarea
                   id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  value={formData.direccion}
+                  onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
                   required
                 />
               </div>
@@ -127,8 +207,8 @@ export default function ClientsPage() {
                 <Label htmlFor="contact">Contacto</Label>
                 <Input
                   id="contact"
-                  value={formData.contact}
-                  onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                  value={formData.contacto}
+                  onChange={(e) => setFormData({ ...formData, contacto: e.target.value })}
                   placeholder="Teléfono, email, etc."
                   required
                 />
@@ -162,11 +242,11 @@ export default function ClientsPage() {
             <form onSubmit={handlePayment} className="space-y-4">
               <div>
                 <Label>Cliente</Label>
-                <p className="text-sm text-muted-foreground">{selectedClient.name}</p>
+                <p className="text-sm text-muted-foreground">{selectedClient.nombre}</p>
               </div>
               <div>
                 <Label>Balance Actual</Label>
-                <p className="text-lg font-semibold text-orange-600">${selectedClient.balance.toFixed(2)}</p>
+                <p className="text-lg font-semibold text-orange-600">${selectedClient.balance}</p>
               </div>
               <div>
                 <Label htmlFor="payment">Monto del Pago</Label>
@@ -198,6 +278,7 @@ export default function ClientsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
+                <TableHead>Cedula/RNC</TableHead>
                 <TableHead>Dirección</TableHead>
                 <TableHead>Contacto</TableHead>
                 <TableHead>Balance</TableHead>
@@ -207,12 +288,13 @@ export default function ClientsPage() {
             <TableBody>
               {clients.map((client) => (
                 <TableRow key={client.id}>
-                  <TableCell className="font-medium">{client.name}</TableCell>
-                  <TableCell>{client.address}</TableCell>
-                  <TableCell>{client.contact}</TableCell>
+                  <TableCell className="font-medium">{client.nombre}</TableCell>
+                  <TableCell>{client.cedulaRNC}</TableCell>
+                  <TableCell>{client.direccion}</TableCell>
+                  <TableCell>{client.contacto}</TableCell>
                   <TableCell>
                     <span className={client.balance > 0 ? "text-orange-600 font-medium" : "text-green-600"}>
-                      ${client.balance.toFixed(2)}
+                      ${client.balance}
                     </span>
                   </TableCell>
                   <TableCell>

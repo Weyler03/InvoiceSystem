@@ -33,22 +33,22 @@ export function InventoryProvider({ children }) {
     ])
 
     // Clientes de ejemplo
-    setClients([
-      {
-        id: "1",
-        name: "Juan Pérez",
-        address: "Calle 123, Ciudad",
-        contact: "555-0123",
-        balance: 150.0,
-      },
-      {
-        id: "2",
-        name: "María García",
-        address: "Avenida 456, Ciudad",
-        contact: "555-0456",
-        balance: 0.0,
-      },
-    ])
+    // setClients([
+    //   {
+    //     id: "1",
+    //     name: "Juan Pérez",
+    //     address: "Calle 123, Ciudad",
+    //     contact: "555-0123",
+    //     balance: 150.0,
+    //   },
+    //   {
+    //     id: "2",
+    //     name: "María García",
+    //     address: "Avenida 456, Ciudad",
+    //     contact: "555-0456",
+    //     balance: 0.0,
+    //   },
+    // ])
 
     // Cotizaciones de ejemplo
     setQuotations([
@@ -189,7 +189,8 @@ export function InventoryProvider({ children }) {
     addQuotation,
     updateQuotationStatus,
     convertQuotationToSale,
-    setProducts
+    setProducts,
+    setClients
   }
 
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>

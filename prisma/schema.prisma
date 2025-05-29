@@ -18,3 +18,12 @@ model Product{
   stock Int
   nombre String?
 }
+
+model Client{
+  id Int @id @default(autoincrement())
+  nombre String
+  direccion String
+  contacto String
+  balance Float
+  cedulaRNC String?
+}
