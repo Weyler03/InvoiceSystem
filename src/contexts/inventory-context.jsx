@@ -10,6 +10,7 @@ export function InventoryProvider({ children }) {
   const [entries, setEntries] = useState([])
   const [sales, setSales] = useState([])
   const [quotations, setQuotations] = useState([])
+  
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -188,6 +189,7 @@ export function InventoryProvider({ children }) {
     addQuotation,
     updateQuotationStatus,
     convertQuotationToSale,
+    setProducts
   }
 
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>

@@ -73,7 +73,7 @@ export default function QuotationsPage() {
     for (const item of quotation.items) {
       const product = products.find((p) => p.id === item.productId)
       if (!product || product.stock < item.quantity) {
-        alert(`Stock insuficiente para ${product?.name || "producto"}`)
+        alert(`Stock insuficiente para ${product?.nombre || "producto"}`)
         return
       }
     }
@@ -84,7 +84,7 @@ export default function QuotationsPage() {
 
   const getProductName = (productId) => {
     const product = products.find((p) => p.id === productId)
-    return product ? product.name : "Producto no encontrado"
+    return product ? product.nombre : "Producto no encontrado"
   }
 
   const getClientName = (clientId) => {
@@ -259,7 +259,7 @@ export default function QuotationsPage() {
                           <SelectContent>
                             {products.map((product) => (
                               <SelectItem key={product.id} value={product.id}>
-                                {product.name} (Stock: {product.stock})
+                                {product.nombre} (Stock: {product.stock})
                               </SelectItem>
                             ))}
                           </SelectContent>
