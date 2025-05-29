@@ -72,7 +72,7 @@ export default function EntriesPage() {
                   <SelectContent>
                     {products.map((product) => (
                       <SelectItem key={product.id} value={product.id}>
-                        {product.name} (Stock actual: {product.stock})
+                        {product.nombre} (Stock actual: {product.stock})
                       </SelectItem>
                     ))}
                   </SelectContent>

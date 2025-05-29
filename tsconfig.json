@@ -22,6 +22,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/contexts/inventory-context.jsx", "src/app/page.jsx", "src/app/salidas/page.jsx", "src/app/productos/page.jsx", "src/app/entradas/page.jsx", "src/app/cotizaciones/page.jsx", "src/app/clientes/page.jsx", "src/lib/prisma.js"],
   "exclude": ["node_modules"]
 }

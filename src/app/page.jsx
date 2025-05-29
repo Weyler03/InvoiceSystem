@@ -80,7 +80,7 @@ export default function Dashboard() {
                 .slice(0, 5)
                 .map((product) => (
                   <div key={product.id} className="flex justify-between items-center">
-                    <span className="text-sm">{product.name}</span>
+                    <span className="text-sm">{product.nombre}</span>
                     <span className="text-sm text-red-600">{product.stock} unidades</span>
                   </div>
                 ))}
