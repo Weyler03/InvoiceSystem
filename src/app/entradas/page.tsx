@@ -12,7 +12,12 @@ import { Plus } from "lucide-react"
 import { useInventory } from "@/contexts/inventory-context"
 
 export default function EntriesPage() {
-  const { products, entries, addEntry, updateProductStock } = useInventory()
+  const { products = [], entries = [], addEntry, updateProductStock } = useInventory()
+  
+  // Asegurar que sean arrays
+  const safeProducts = Array.isArray(products) ? products : []
+  const safeEntries = Array.isArray(entries) ? entries : []
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [formData, setFormData] = useState({
     productId: "",
@@ -20,25 +25,52 @@ export default function EntriesPage() {
     notes: "",
   })
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    const quantity = Number.parseInt(formData.quantity) || 0
     const entryData = {
       productId: formData.productId,
-      quantity: Number.parseInt(formData.quantity),
+      quantity: quantity,
       notes: formData.notes,
       date: new Date().toISOString(),
     }
 
-    addEntry(entryData)
-    updateProductStock(formData.productId, Number.parseInt(formData.quantity))
-
-    setFormData({ productId: "", quantity: "", notes: "" })
-    setIsDialogOpen(false)
+    try {
+      // Enviar a la API
+      const response = await fetch('/api/entradas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entryData)
+      })
+      
+      if (response.ok) {
+        const newEntry = await response.json()
+        
+        // Actualizar contexto local
+        addEntry(newEntry)
+        
+        // Actualizar stock del producto
+        updateProductStock(formData.productId, quantity)
+        
+        // También actualizar en la base de datos
+        await fetch(`/api/products/${formData.productId}/stock`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stock: quantity, operation: 'add' })
+        })
+      }
+      
+      setFormData({ productId: "", quantity: "", notes: "" })
+      setIsDialogOpen(false)
+    } catch (error) {
+      console.error('Error al registrar entrada:', error)
+    }
   }
 
   const getProductName = (productId) => {
-    const product = products.find((p) => p.id === productId)
-    return product ? product.name : "Producto no encontrado"
+    const product = safeProducts.find((p) => p.id === productId)
+    return product ? (product.name || product.nombre || "Sin nombre") : "Producto no encontrado"
   }
 
   return (
@@ -70,11 +102,18 @@ export default function EntriesPage() {
                     <SelectValue placeholder="Selecciona un producto" />
                   </SelectTrigger>
                   <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.nombre} (Stock actual: {product.stock})
+                    {safeProducts.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        No hay productos disponibles
                       </SelectItem>
-                    ))}
+                    ) : (
+                      safeProducts.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.name || product.nombre || "Producto"} 
+                          (Stock actual: {product.stock || 0})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -87,6 +126,7 @@ export default function EntriesPage() {
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                   required
+                  disabled={!formData.productId || safeProducts.length === 0}
                 />
               </div>
               <div>
@@ -98,7 +138,11 @@ export default function EntriesPage() {
                   placeholder="Proveedor, lote, etc."
                 />
               </div>
-              <Button type="submit" className="w-full">
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={!formData.productId || !formData.quantity || safeProducts.length === 0}
+              >
                 Registrar Entrada
               </Button>
             </form>
@@ -111,26 +155,34 @@ export default function EntriesPage() {
           <CardTitle>Historial de Entradas</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Producto</TableHead>
-                <TableHead>Cantidad</TableHead>
-                <TableHead>Notas</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {entries.map((entry) => (
-                <TableRow key={entry.id}>
-                  <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
-                  <TableCell>{getProductName(entry.productId)}</TableCell>
-                  <TableCell className="text-green-600">+{entry.quantity}</TableCell>
-                  <TableCell>{entry.notes || "-"}</TableCell>
+          {safeEntries.length === 0 ? (
+            <p className="text-center text-muted-foreground py-4">
+              No hay entradas registradas
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Producto</TableHead>
+                  <TableHead>Cantidad</TableHead>
+                  <TableHead>Notas</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {safeEntries.map((entry) => (
+                  <TableRow key={entry.id || Math.random()}>
+                    <TableCell>
+                      {entry.date ? new Date(entry.date).toLocaleDateString() : 'Fecha no disponible'}
+                    </TableCell>
+                    <TableCell>{getProductName(entry.productId)}</TableCell>
+                    <TableCell className="text-green-600">+{entry.quantity || 0}</TableCell>
+                    <TableCell>{entry.notes || "-"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

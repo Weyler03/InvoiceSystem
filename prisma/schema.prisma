@@ -1,29 +1,112 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
-model Product{
-  id Int @id @default(autoincrement())
-  descrpcion String
-  precio Decimal
-  stock Int
-  nombre String?
+model Product {
+  id           String         @id @default(cuid())
+  name         String
+  description  String
+  price        Float
+  stock        Int            @default(0)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  entries      Entry[]
+  saleItems    SaleItem[]
+  quotationItems QuotationItem[]
+
+  @@map("products")
+}
+model Payment {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amount    Float
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@map("payments")
 }
 
-model Client{
-  id Int @id @default(autoincrement())
-  nombre String
-  direccion String
-  contacto String
-  balance Float
-  cedulaRNC String?
+model Client {
+  id         String      @id @default(cuid())
+  name       String
+  address    String
+  contact    String
+  balance    Float       @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  sales      Sale[]
+  quotations Quotation[]
+  payments   Payment[]
+
+  @@map("clients")
+}
+
+model Entry {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  notes     String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@map("entries")
+}
+
+model Sale {
+  id        String     @id @default(cuid())
+  clientId  String
+  client    Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  total     Float
+  date      DateTime   @default(now())
+  createdAt DateTime   @default(now())
+  items     SaleItem[]
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  price     Float
+
+  @@map("sale_items")
+}
+
+model Quotation {
+  id         String          @id @default(cuid())
+  number     String          @unique
+  clientId   String
+  client     Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  total      Float
+  validUntil DateTime
+  status     String          @default("pendiente")
+  date       DateTime        @default(now())
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  items      QuotationItem[]
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String    @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity    Int
+  price       Float
+
+  @@map("quotation_items")
 }

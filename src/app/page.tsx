@@ -1,61 +1,28 @@
 "use client"
 
-import { useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, TrendingDown, Users, FileText } from "lucide-react"
 import { useInventory } from "@/contexts/inventory-context"
 
 export default function Dashboard() {
-  const {
-    products, clients, entries, sales, quotations,
-    setProducts, setClients, setEntries, setSales, setQuotations
-  } = useInventory()
+  const { products = [], clients = [], entries = [], sales = [], quotations = [] } = useInventory()
 
-  // 🔥 useEffect para cargar los datos cada vez que se monte el Dashboard
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const res = await fetch('/api/products')
-        const data = await res.json()
-        setProducts(data)
-      } catch (error) {
-        console.error('Error al obtener productos:', error)
-      }
-    }
+  // Asegurar que siempre sean arrays
+  const safeProducts = Array.isArray(products) ? products : []
+  const safeClients = Array.isArray(clients) ? clients : []
+  const safeSales = Array.isArray(sales) ? sales : []
+  const safeQuotations = Array.isArray(quotations) ? quotations : []
 
-    const fetchClients = async () => {
-      try {
-        const res = await fetch('/api/clients')
-        const data = await res.json()
-        setClients(data)
-      } catch (error) {
-        console.error('Error al obtener clientes:', error)
-      }
-    }
+  const totalProducts = safeProducts.length
+  const totalStock = safeProducts.reduce((sum, product) => sum + (product.stock || 0), 0)
+  const totalClients = safeClients.length
+  const totalBalance = safeClients.reduce((sum, client) => sum + (client.balance || 0), 0)
+  const totalSales = safeSales.reduce((sum, sale) => sum + (sale.total || 0), 0)
+  const totalQuotations = safeQuotations.length
+  const pendingQuotations = safeQuotations.filter((q) => q.status === "pendiente").length
 
-    // const fetchQuotations = async () => {
-    //   try {
-    //     const res = await fetch('/api/quotations')
-    //     const data = await res.json()
-    //     setQuotations(data)
-    //   } catch (error) {
-    //     console.error('Error al obtener cotizaciones:', error)
-    //   }
-    // }
-
-    // Puedes agregar fetchEntries() y fetchSales() si tienes APIs para ellos
-    fetchProducts()
-    fetchClients()
-    // fetchQuotations()
-  }, [])
-
-  const totalProducts = products.length
-  const totalStock = products.reduce((sum, product) => sum + product.stock, 0)
-  const totalClients = clients.length
-  const totalBalance = clients.reduce((sum, client) => sum + client.balance, 0)
-  const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0)
-  const totalQuotations = quotations.length
-  const pendingQuotations = quotations.filter((q) => q.status === "pendiente").length
+  const lowStockProducts = safeProducts.filter(p => (p.stock || 0) < 10)
+  const clientsWithBalance = safeClients.filter(c => (c.balance || 0) > 0)
 
   return (
     <div className="space-y-6">
@@ -104,7 +71,7 @@ export default function Dashboard() {
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalBalance}</div>
+            <div className="text-2xl font-bold">${totalBalance.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">Por cobrar</p>
           </CardContent>
         </Card>
@@ -112,16 +79,20 @@ export default function Dashboard() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle>Productos con Bajo Stock</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Productos con Bajo Stock</CardTitle>
+          </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {products.filter(p => p.stock < 10).slice(0, 5).map(p => (
-                <div key={p.id} className="flex justify-between items-center">
-                  <span className="text-sm">{p.nombre}</span>
-                  <span className="text-sm text-red-600">{p.stock} unidades</span>
-                </div>
-              ))}
-              {products.filter(p => p.stock < 10).length === 0 && (
+              {lowStockProducts
+                .slice(0, 5)
+                .map((product) => (
+                  <div key={product.id} className="flex justify-between items-center">
+                    <span className="text-sm">{product.nombre || product.name || 'Sin nombre'}</span>
+                    <span className="text-sm text-red-600">{product.stock || 0} unidades</span>
+                  </div>
+                ))}
+              {lowStockProducts.length === 0 && (
                 <p className="text-sm text-muted-foreground">Todos los productos tienen stock suficiente</p>
               )}
             </div>
@@ -129,16 +100,20 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Clientes con Balance Pendiente</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Clientes con Balance Pendiente</CardTitle>
+          </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {clients.filter(c => c.balance > 0).slice(0, 5).map(c => (
-                <div key={c.id} className="flex justify-between items-center">
-                  <span className="text-sm">{c.nombre}</span>
-                  <span className="text-sm text-orange-600">${c.balance}</span>
-                </div>
-              ))}
-              {clients.filter(c => c.balance > 0).length === 0 && (
+              {clientsWithBalance
+                .slice(0, 5)
+                .map((client) => (
+                  <div key={client.id} className="flex justify-between items-center">
+                    <span className="text-sm">{client.nombre || client.name || 'Sin nombre'}</span>
+                    <span className="text-sm text-orange-600">${(client.balance || 0).toFixed(2)}</span>
+                  </div>
+                ))}
+              {clientsWithBalance.length === 0 && (
                 <p className="text-sm text-muted-foreground">No hay balances pendientes</p>
               )}
             </div>
