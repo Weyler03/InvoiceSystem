@@ -1,4 +1,3 @@
-// app/api/products/route.js
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -9,7 +8,7 @@ export async function GET() {
     })
     return NextResponse.json(products)
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error en GET /api/products:', error)
     return NextResponse.json([], { status: 200 })
   }
 }
@@ -18,12 +17,13 @@ export async function POST(request) {
   try {
     const body = await request.json()
     
-    // Usa nombres en inglés
     const productData = {
       name: body.name,
       description: body.description || '',
       price: parseFloat(body.price),
-      stock: parseInt(body.stock),
+      cost: parseFloat(body.cost) || 0,
+      stock: parseInt(body.stock) || 0,
+      supplier: body.supplier?.trim() || null,
     }
     
     const newProduct = await prisma.product.create({
@@ -31,11 +31,10 @@ export async function POST(request) {
     })
     
     return NextResponse.json(newProduct, { status: 201 })
-    
   } catch (error) {
-    console.error('Error en POST:', error)
+    console.error('Error en POST /api/products:', error)
     return NextResponse.json(
-      { error: 'Error al crear el producto' },
+      { error: 'Error al crear producto: ' + error.message },
       { status: 500 }
     )
   }

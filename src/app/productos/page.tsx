@@ -22,7 +22,9 @@ export default function ProductsPage() {
     name: "",
     description: "",
     price: "",
+    cost: "",
     stock: "",
+    supplier: "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -32,9 +34,7 @@ export default function ProductsPage() {
     setError(null)
     setIsSubmitting(true)
     
-    console.log('Enviando formulario con datos:', formData)
-    
-    // Validaciones básicas
+    // Validaciones
     if (!formData.name.trim()) {
       setError("El nombre es obligatorio")
       setIsSubmitting(false)
@@ -42,7 +42,13 @@ export default function ProductsPage() {
     }
     
     if (!formData.price || parseFloat(formData.price) <= 0) {
-      setError("El precio debe ser mayor a 0")
+      setError("El precio de venta debe ser mayor a 0")
+      setIsSubmitting(false)
+      return
+    }
+    
+    if (!formData.cost || parseFloat(formData.cost) < 0) {
+      setError("El costo debe ser un número mayor o igual a 0")
       setIsSubmitting(false)
       return
     }
@@ -52,30 +58,35 @@ export default function ProductsPage() {
       setIsSubmitting(false)
       return
     }
+    
+    // Advertencia si el precio es menor al costo
+    if (parseFloat(formData.price) < parseFloat(formData.cost)) {
+      const confirmar = confirm(
+        "⚠️ El precio de venta es menor al costo.\n\n¿Deseas continuar?"
+      )
+      if (!confirmar) {
+        setIsSubmitting(false)
+        return
+      }
+    }
 
     const productData = {
       name: formData.name.trim(),
       description: formData.description.trim(),
       price: parseFloat(formData.price),
+      cost: parseFloat(formData.cost) || 0,
       stock: parseInt(formData.stock),
+      supplier: formData.supplier.trim() || null,
     }
 
-    console.log('Datos procesados:', productData)
-
     try {
-      let result
-      
       if (editingProduct) {
-        console.log('Actualizando producto ID:', editingProduct.id)
-        result = await updateProduct(editingProduct.id, productData)
+        await updateProduct(editingProduct.id, productData)
       } else {
-        console.log('Creando nuevo producto')
-        result = await addProduct(productData)
+        await addProduct(productData)
       }
       
-      console.log('Resultado de la operación:', result)
-      
-      setFormData({ name: "", description: "", price: "", stock: "" })
+      setFormData({ name: "", description: "", price: "", cost: "", stock: "", supplier: "" })
       setEditingProduct(null)
       setIsDialogOpen(false)
       setError(null)
@@ -89,13 +100,14 @@ export default function ProductsPage() {
   }
 
   const handleEdit = (product) => {
-    console.log('Editando producto:', product)
     setEditingProduct(product)
     setFormData({
-      name: product.name || product.nombre || "",
-      description: product.description || product.descripcion || "",
+      name: product.name || "",
+      description: product.description || "",
       price: (product.price || 0).toString(),
+      cost: (product.cost || 0).toString(),
       stock: (product.stock || 0).toString(),
+      supplier: product.supplier || "",
     })
     setError(null)
     setIsDialogOpen(true)
@@ -112,6 +124,14 @@ export default function ProductsPage() {
     }
   }
 
+  // Calcular margen de ganancia
+  const getMargin = (product) => {
+    const price = product.price || 0
+    const cost = product.cost || 0
+    if (price === 0) return 0
+    return ((price - cost) / price) * 100
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -124,7 +144,7 @@ export default function ProductsPage() {
             <Button
               onClick={() => {
                 setEditingProduct(null)
-                setFormData({ name: "", description: "", price: "", stock: "" })
+                setFormData({ name: "", description: "", price: "", cost: "", stock: "", supplier: "" })
                 setError(null)
               }}
             >
@@ -164,9 +184,27 @@ export default function ProductsPage() {
                   disabled={isSubmitting}
                 />
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="price">Precio *</Label>
+                  <Label htmlFor="cost">Costo Unitario *</Label>
+                  <Input
+                    id="cost"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.cost}
+                    onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+                    required
+                    disabled={isSubmitting}
+                    placeholder="0.00"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Lo que pagas al proveedor
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="price">Precio de Venta *</Label>
                   <Input
                     id="price"
                     type="number"
@@ -176,8 +214,27 @@ export default function ProductsPage() {
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     required
                     disabled={isSubmitting}
+                    placeholder="0.00"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Lo que cobras al cliente
+                  </p>
                 </div>
+              </div>
+              
+              {/* Vista previa del margen */}
+              {formData.cost && formData.price && parseFloat(formData.price) > 0 && (
+                <div className={`p-2 rounded text-sm ${
+                  parseFloat(formData.price) >= parseFloat(formData.cost) 
+                    ? 'bg-green-50 text-green-800' 
+                    : 'bg-red-50 text-red-800'
+                }`}>
+                  Ganancia por unidad: ${(parseFloat(formData.price) - parseFloat(formData.cost)).toFixed(2)}
+                  {' '}│ Margen: {(((parseFloat(formData.price) - parseFloat(formData.cost)) / parseFloat(formData.price)) * 100).toFixed(1)}%
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="stock">Stock Inicial *</Label>
                   <Input
@@ -190,7 +247,18 @@ export default function ProductsPage() {
                     disabled={isSubmitting}
                   />
                 </div>
+                <div>
+                  <Label htmlFor="supplier">Proveedor (opcional)</Label>
+                  <Input
+                    id="supplier"
+                    value={formData.supplier}
+                    onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                    disabled={isSubmitting}
+                    placeholder="Ej: Distribuidora XYZ"
+                  />
+                </div>
               </div>
+              
               <Button 
                 type="submit" 
                 className="w-full"
@@ -198,14 +266,6 @@ export default function ProductsPage() {
               >
                 {isSubmitting ? "Procesando..." : editingProduct ? "Actualizar" : "Crear"} Producto
               </Button>
-              
-              {process.env.NODE_ENV === 'development' && (
-                <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
-                  <p>Debug Info:</p>
-                  <p>Editing: {editingProduct ? 'Sí' : 'No'}</p>
-                  <p>Form Data: {JSON.stringify(formData)}</p>
-                </div>
-              )}
             </form>
           </DialogContent>
         </Dialog>
@@ -228,47 +288,58 @@ export default function ProductsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Descripción</TableHead>
+                  <TableHead>Costo</TableHead>
                   <TableHead>Precio</TableHead>
+                  <TableHead>Margen</TableHead>
                   <TableHead>Stock</TableHead>
+                  <TableHead>Proveedor</TableHead>
                   <TableHead>Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {safeProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">
-                      {product.name || product.nombre || 'Sin nombre'}
-                    </TableCell>
-                    <TableCell>
-                      {product.description || product.descripcion || '-'}
-                    </TableCell>
-                    <TableCell>${(product.price || 0).toFixed(2)}</TableCell>
-                    <TableCell>
-                      <span className={(product.stock || 0) < 10 ? "text-red-600" : ""}>
-                        {product.stock || 0}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleEdit(product)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleDelete(product.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {safeProducts.map((product) => {
+                  const margin = getMargin(product)
+                  return (
+                    <TableRow key={product.id}>
+                      <TableCell className="font-medium">
+                        {product.name || 'Sin nombre'}
+                      </TableCell>
+                      <TableCell>${(product.cost || 0).toFixed(2)}</TableCell>
+                      <TableCell>${(product.price || 0).toFixed(2)}</TableCell>
+                      <TableCell>
+                        <span className={margin >= 0 ? "text-green-600" : "text-red-600"}>
+                          {margin.toFixed(1)}%
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className={(product.stock || 0) < 10 ? "text-red-600" : ""}>
+                          {product.stock || 0}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {product.supplier || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleEdit(product)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleDelete(product.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}

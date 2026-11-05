@@ -90,54 +90,36 @@ export function InventoryProvider({ children }) {
   }
 
   // Funciones para productos
-  const addProduct = async (product) => {
-    try {
-      console.log('📤 Enviando producto a API:', product)
-      
-      const productData = {
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        stock: product.stock,
-      }
-      
-      const response = await fetch("/api/products", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json" 
-        },
-        body: JSON.stringify(productData),
-      })
-
-      console.log('📥 Respuesta recibida:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok
-      })
-
-      if (!response.ok) {
-        let errorMessage = 'Failed to add product'
-        try {
-          const errorData = await response.json()
-          console.error('📛 Datos del error:', errorData)
-          errorMessage = errorData.error || errorData.message || errorMessage
-        } catch (e) {
-          errorMessage = `Server error: ${response.status} ${response.statusText}`
-        }
-        throw new Error(errorMessage)
-      }
-
-      const newProduct = await response.json()
-      console.log('✅ Producto creado exitosamente:', newProduct)
-      
-      setProducts(prev => [...prev, newProduct])
-      return newProduct
-
-    } catch (error) {
-      console.error('❌ Error completo en addProduct:', error)
-      throw error
+ const addProduct = async (product) => {
+  try {
+    const productData = {
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      cost: product.cost,
+      stock: product.stock,
+      supplier: product.supplier,
     }
+    
+    const response = await fetch("/api/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(productData),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to add product')
+    }
+
+    const newProduct = await response.json()
+    setProducts(prev => [...prev, newProduct])
+    return newProduct
+  } catch (error) {
+    console.error('Error en addProduct:', error)
+    throw error
   }
+}
 
   const updateProduct = async (id, updatedProduct) => {
     try {
