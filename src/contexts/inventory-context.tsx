@@ -354,25 +354,31 @@ const getClientPayments = async (clientId) => {
 
   // Funciones para ventas
   const addSale = async (sale) => {
-    try {
-      const response = await fetch("/api/salidas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sale),
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to add sale')
-      }
-      
-      const newSale = await response.json()
-      setSales((prev) => [...prev, newSale])
-      return newSale
-    } catch (error) {
-      console.error('Error adding sale:', error)
-      throw error
+  try {
+    const response = await fetch("/api/salidas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sale),
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to add sale')
     }
+    
+    const newSale = await response.json()
+    setSales((prev) => [...prev, newSale])
+    
+    // ✅ Recargar productos (stock cambió) y clientes (balance cambió)
+    await loadProducts()
+    await loadClients()
+    
+    return newSale
+  } catch (error) {
+    console.error('Error adding sale:', error)
+    throw error
   }
+}
 
   // Funciones para cotizaciones
   const addQuotation = async (quotation) => {

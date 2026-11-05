@@ -64,6 +64,7 @@ model Sale {
   clientId  String
   client    Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   total     Float
+  paidAmount Float      @default(0)
   date      DateTime   @default(now())
   createdAt DateTime   @default(now())
   items     SaleItem[]

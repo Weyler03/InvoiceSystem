@@ -5,10 +5,7 @@ export async function GET() {
   try {
     const sales = await prisma.sale.findMany({
       orderBy: { date: 'desc' },
-      include: {
-        items: true,
-        client: true
-      }
+      include: { items: true }
     })
     return NextResponse.json(sales || [])
   } catch (error) {
@@ -19,32 +16,41 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { clientId, items, total, date } = await request.json()
-    
-    console.log('📝 Datos recibidos:', { clientId, items, total, date })
+    const { clientId, items, total, paidAmount, date } = await request.json()
     
     // Validaciones
     if (!clientId) {
       return NextResponse.json({ error: 'Cliente no seleccionado' }, { status: 400 })
     }
-    
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'No hay productos en la venta' }, { status: 400 })
     }
     
-    // Verificar stock disponible antes de crear la venta
+    const totalNum = parseFloat(total) || 0
+    const paidNum = parseFloat(paidAmount) || 0
+    const pendingAmount = totalNum - paidNum
+    
+    if (totalNum <= 0) {
+      return NextResponse.json({ error: 'El total debe ser mayor a 0' }, { status: 400 })
+    }
+    if (paidNum < 0 || paidNum > totalNum) {
+      return NextResponse.json(
+        { error: 'El monto pagado debe estar entre 0 y el total' },
+        { status: 400 }
+      )
+    }
+    
+    // Verificar stock
     for (const item of items) {
       const product = await prisma.product.findUnique({
         where: { id: item.productId }
       })
-      
       if (!product) {
         return NextResponse.json(
-          { error: `Producto ${item.productId} no encontrado` },
+          { error: `Producto no encontrado` },
           { status: 404 }
         )
       }
-      
       if (product.stock < item.quantity) {
         return NextResponse.json(
           { error: `Stock insuficiente para ${product.name}. Disponible: ${product.stock}` },
@@ -53,61 +59,61 @@ export async function POST(request) {
       }
     }
     
-    // Crear la venta con sus items
-    const newSale = await prisma.sale.create({
-      data: {
-        clientId: clientId,
-        total: parseFloat(total),
-        date: date ? new Date(date) : new Date(),
-        items: {
-          create: items.map(item => ({
-            productId: item.productId,
-            quantity: parseInt(item.quantity),
-            price: parseFloat(item.price)
-          }))
-        }
-      },
-      include: {
-        items: true,
-        client: true
-      }
-    })
-    
-    console.log('✅ Venta creada:', newSale.id)
-    
-    // Actualizar el stock de cada producto
-    for (const item of items) {
-      await prisma.product.update({
-        where: { id: item.productId },
+    // Transacción: crear venta, actualizar stock, actualizar balance, registrar pago
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Crear la venta
+      const newSale = await tx.sale.create({
         data: {
-          stock: {
-            decrement: parseInt(item.quantity)
+          clientId,
+          total: totalNum,
+          paidAmount: paidNum,
+          date: date ? new Date(date) : new Date(),
+          items: {
+            create: items.map(item => ({
+              productId: item.productId,
+              quantity: parseInt(item.quantity),
+              price: parseFloat(item.price)
+            }))
           }
-        }
+        },
+        include: { items: true }
       })
-      console.log(`📦 Stock actualizado para producto ${item.productId}: -${item.quantity}`)
-    }
-    
-    // Actualizar el balance del cliente
-    await prisma.client.update({
-      where: { id: clientId },
-      data: {
-        balance: {
-          increment: parseFloat(total)
-        }
+      
+      // 2. Actualizar stock
+      for (const item of items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { decrement: parseInt(item.quantity) } }
+        })
       }
+      
+      // 3. Actualizar balance del cliente (solo el pendiente)
+      if (pendingAmount > 0) {
+        await tx.client.update({
+          where: { id: clientId },
+          data: { balance: { increment: pendingAmount } }
+        })
+      }
+      
+      // 4. Registrar el pago si fue mayor a 0
+      if (paidNum > 0) {
+        await tx.payment.create({
+          data: {
+            clientId,
+            amount: paidNum,
+            date: new Date()
+          }
+        })
+      }
+      
+      return newSale
     })
-    console.log(`💰 Balance actualizado para cliente ${clientId}: +${total}`)
     
-    return NextResponse.json(newSale, { status: 201 })
-    
+    return NextResponse.json(result, { status: 201 })
   } catch (error) {
-    console.error('❌ Error en POST /api/salidas:', error)
+    console.error('Error en POST /api/salidas:', error)
     return NextResponse.json(
-      { 
-        error: 'Error al crear la venta',
-        details: error.message 
-      },
+      { error: 'Error al crear la venta: ' + error.message },
       { status: 500 }
     )
   }
