@@ -8,7 +8,7 @@ export async function GET() {
     })
     return NextResponse.json(entries || [])
   } catch (error) {
-    console.error('Error en GET /api/entries:', error)
+    console.error('Error en GET /api/entradas:', error)
     return NextResponse.json([], { status: 200 })
   }
 }
@@ -17,38 +17,38 @@ export async function POST(request) {
   try {
     const { productId, quantity, notes } = await request.json()
     
-    // Verificar que el producto exista
-    const product = await prisma.product.findUnique({
-      where: { id: productId }
-    })
+    if (!productId || !quantity || quantity <= 0) {
+      return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
+    }
     
+    // Verificar que el producto existe
+    const product = await prisma.product.findUnique({ where: { id: productId } })
     if (!product) {
       return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
     }
     
-    // Crear entrada
-    const newEntry = await prisma.entry.create({
-      data: {
-        productId,
-        quantity: parseInt(quantity),
-        notes,
-        date: new Date()
-      }
-    })
-    
-    // Actualizar stock del producto
-    await prisma.product.update({
-      where: { id: productId },
-      data: {
-        stock: {
-          increment: parseInt(quantity)
+    // Transacción: crear entrada + actualizar stock
+    const result = await prisma.$transaction(async (tx) => {
+      const newEntry = await tx.entry.create({
+        data: {
+          productId,
+          quantity: parseInt(quantity),
+          notes: notes || '',
+          date: new Date()
         }
-      }
+      })
+      
+      const updatedProduct = await tx.product.update({
+        where: { id: productId },
+        data: { stock: { increment: parseInt(quantity) } }
+      })
+      
+      return { entry: newEntry, product: updatedProduct }
     })
     
-    return NextResponse.json(newEntry)
+    return NextResponse.json(result.entry, { status: 201 })
   } catch (error) {
-    console.error('Error en POST /api/entries:', error)
-    return NextResponse.json({ error: 'Error al crear entrada' }, { status: 500 })
+    console.error('Error en POST /api/entradas:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

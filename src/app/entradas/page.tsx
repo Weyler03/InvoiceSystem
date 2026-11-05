@@ -12,9 +12,8 @@ import { Plus } from "lucide-react"
 import { useInventory } from "@/contexts/inventory-context"
 
 export default function EntriesPage() {
-  const { products = [], entries = [], addEntry, updateProductStock } = useInventory()
+  const { products = [], entries = [], addEntry } = useInventory()
   
-  // Asegurar que sean arrays
   const safeProducts = Array.isArray(products) ? products : []
   const safeEntries = Array.isArray(entries) ? entries : []
   
@@ -29,6 +28,17 @@ export default function EntriesPage() {
     e.preventDefault()
     
     const quantity = Number.parseInt(formData.quantity) || 0
+    
+    if (quantity <= 0) {
+      alert("La cantidad debe ser mayor a 0")
+      return
+    }
+    
+    if (!formData.productId) {
+      alert("Debe seleccionar un producto")
+      return
+    }
+
     const entryData = {
       productId: formData.productId,
       quantity: quantity,
@@ -37,34 +47,15 @@ export default function EntriesPage() {
     }
 
     try {
-      // Enviar a la API
-      const response = await fetch('/api/entradas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entryData)
-      })
-      
-      if (response.ok) {
-        const newEntry = await response.json()
-        
-        // Actualizar contexto local
-        addEntry(newEntry)
-        
-        // Actualizar stock del producto
-        updateProductStock(formData.productId, quantity)
-        
-        // También actualizar en la base de datos
-        await fetch(`/api/products/${formData.productId}/stock`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stock: quantity, operation: 'add' })
-        })
-      }
+      // ✅ SOLO llamar a addEntry (el contexto se encarga de todo)
+      await addEntry(entryData)
       
       setFormData({ productId: "", quantity: "", notes: "" })
       setIsDialogOpen(false)
+      alert("Entrada registrada exitosamente")
     } catch (error) {
       console.error('Error al registrar entrada:', error)
+      alert(error.message || "Error al registrar la entrada")
     }
   }
 
@@ -103,9 +94,9 @@ export default function EntriesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {safeProducts.length === 0 ? (
-                      <SelectItem value="" disabled>
+                      <div className="p-2 text-sm text-gray-500 text-center">
                         No hay productos disponibles
-                      </SelectItem>
+                      </div>
                     ) : (
                       safeProducts.map((product) => (
                         <SelectItem key={product.id} value={product.id}>
