@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { InventoryProvider } from "@/contexts/inventory-context"
-import { Sidebar } from "@/components/sidebar"
+import LayoutWrapper from "@/components/LayoutWrapper"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -21,10 +21,7 @@ export default function RootLayout({
     <html lang="es">
       <body className={inter.className}>
         <InventoryProvider>
-          <div className="flex h-screen bg-gray-100">
-            <Sidebar />
-            <main className="flex-1 overflow-y-auto p-6">{children}</main>
-          </div>
+          <LayoutWrapper>{children}</LayoutWrapper>
         </InventoryProvider>
       </body>
     </html>
